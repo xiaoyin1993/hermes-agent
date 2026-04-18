@@ -1,0 +1,873 @@
+# Hermes Agent CLI 配置文件（中文注释版）
+# 将此文件复制为 cli-config.yaml 并按需修改。
+# 本文件用于配置 CLI 行为。.env 中的环境变量优先级高于本文件。
+
+# =============================================================================
+# 模型配置
+# =============================================================================
+model:
+  # 默认使用的模型（可被命令行 --model 参数覆盖）
+  # 这里的键名可以是 "default"，也可以是 "model"，两者等价。
+  default: "anthropic/claude-opus-4.6"
+
+  # 推理服务提供商（Provider）选择：
+  #   "auto"         - 自动根据已配置的凭据检测（默认）
+  #   "openrouter"   - OpenRouter（需要：OPENROUTER_API_KEY 或 OPENAI_API_KEY）
+  #   "nous"         - Nous Portal OAuth（需要先执行：hermes login）
+  #   "nous-api"     - Nous Portal API Key（需要：NOUS_API_KEY）
+  #   "anthropic"    - 直连 Anthropic API（需要：ANTHROPIC_API_KEY）
+  #   "openai-codex" - OpenAI Codex（需要：hermes auth）
+  #   "copilot"      - GitHub Copilot / GitHub Models（需要：GITHUB_TOKEN）
+  #   "gemini"       - 直连 Google AI Studio（需要：GOOGLE_API_KEY 或 GEMINI_API_KEY）
+  #   "zai"          - z.ai / 智谱 GLM 模型（需要：GLM_API_KEY）
+  #   "kimi-coding"  - Kimi / 月之暗面（需要：KIMI_API_KEY）
+  #   "minimax"      - MiniMax 国际版（需要：MINIMAX_API_KEY）
+  #   "minimax-cn"   - MiniMax 国内版（需要：MINIMAX_CN_API_KEY）
+  #   "huggingface"  - Hugging Face Inference（需要：HF_TOKEN）
+  #   "xiaomi"       - 小米 MiMo（需要：XIAOMI_API_KEY）
+  #   "arcee"        - Arcee AI Trinity 模型（需要：ARCEEAI_API_KEY）
+  #   "ollama-cloud" - Ollama Cloud（需要：OLLAMA_API_KEY — https://ollama.com/settings）
+  #   "kilocode"     - KiloCode 网关（需要：KILOCODE_API_KEY）
+  #   "ai-gateway"   - Vercel AI Gateway（需要：AI_GATEWAY_API_KEY）
+  #
+  # 本地服务器（LM Studio、Ollama、vLLM、llama.cpp）：
+  #   "custom"       - 任意 OpenAI 兼容端点。需要在下方设置 base_url。
+  #   别名："lmstudio"、"ollama"、"vllm"、"llamacpp" 都会映射为 "custom"。
+  #   LM Studio 示例：
+  #     provider: "lmstudio"
+  #     base_url: "http://localhost:1234/v1"
+  #   本地服务器通常不校验鉴权，不需要配置 API Key。
+  #
+  # 也可用 --provider 参数或 HERMES_INFERENCE_PROVIDER 环境变量覆盖。
+  provider: "auto"
+
+  # API 配置（未设置时回退到 OPENROUTER_API_KEY 环境变量）
+  # api_key: "your-key-here"  # 取消注释可直接在此处写 Key（推荐写到 .env 里）
+  base_url: "https://openrouter.ai/api/v1"
+
+  # ── Token 限制 — 两个容易混淆的参数 ─────────────────────────────────────────
+  #
+  # context_length：上下文窗口总长度（输入 + 输出合计的 token 数）。
+  #   控制 Hermes 何时触发历史压缩，以及校验请求是否超限。
+  #   一般无需设置 — Hermes 会自动从 Provider 获取正确值。
+  #   仅在自动检测失败时手动设置（例如：本地服务器用了自定义 num_ctx，
+  #   或代理未暴露 /v1/models 接口时）。
+  #
+  # context_length: 131072
+  #
+  # max_tokens：输出 token 上限 — 模型单次回复最多生成多少 token。
+  #   与对话历史长度无关。
+  #   OpenAI 标准里的 "max_tokens" 命名其实容易误导；Anthropic 原生 API
+  #   已将其更名为 "max_output_tokens" 以消除歧义。
+  #   推荐留空，使用模型原生输出上限。
+  #   仅在你想主动限制单次回复长度时才设置。
+  #
+  # max_tokens: 8192
+
+# =============================================================================
+# OpenRouter Provider 路由（仅在使用 OpenRouter 时生效）
+# =============================================================================
+# 控制请求在 OpenRouter 背后的多个上游 Provider 之间如何路由。
+# 参考：https://openrouter.ai/docs/guides/routing/provider-selection
+#
+# provider_routing:
+#   # 排序策略："price"（默认，价格优先）、"throughput"（吞吐优先）、"latency"（延迟优先）
+#   # 在模型名末尾追加 :nitro 是吞吐优先的快捷写法。
+#   sort: "throughput"
+#
+#   # 只允许这些 Provider（Provider slug 来自 OpenRouter）
+#   # only: ["anthropic", "google"]
+#
+#   # 完全跳过这些 Provider
+#   # ignore: ["deepinfra", "fireworks"]
+#
+#   # 按此顺序依次尝试（覆盖默认负载均衡）
+#   # order: ["anthropic", "google", "together"]
+#
+#   # 要求 Provider 必须支持你请求中的全部参数
+#   # require_parameters: true
+#
+#   # 数据政策："allow"（默认）或 "deny"（排除可能会保留数据的 Provider）
+#   # data_collection: "deny"
+
+# =============================================================================
+# 智能模型路由（可选）
+# =============================================================================
+# 简单/短回合用便宜的模型，复杂请求仍用主模型。默认关闭。
+#
+# smart_model_routing:
+#   enabled: true
+#   max_simple_chars: 160     # 字符数小于此值视为简单
+#   max_simple_words: 28      # 词数小于此值视为简单
+#   cheap_model:
+#     provider: openrouter
+#     model: google/gemini-2.5-flash
+
+# =============================================================================
+# Git Worktree 隔离
+# =============================================================================
+# 开启后，每个 CLI 会话会创建独立的 git worktree，这样多个 agent
+# 可以在同一仓库并发工作而不会冲突。
+# 等价于每次都带上 --worktree / -w 参数。
+#
+# worktree: true    # 在 git 仓库中始终创建 worktree
+# worktree: false   # 默认 — 仅在显式 -w 参数时创建
+
+# =============================================================================
+# 终端（Terminal）工具配置
+# =============================================================================
+# 下方 6 种方案中选 ONE 一种启用（取消注释）。
+# terminal 工具会在所选环境里执行命令。
+
+# -----------------------------------------------------------------------------
+# 方案 1：本地执行（默认）
+# 命令直接在本机当前目录执行
+# -----------------------------------------------------------------------------
+# 工作目录行为：
+#   - CLI（hermes 命令）：使用 "."（你启动 hermes 时所在目录）
+#   - 消息平台（Telegram/Discord 等）：使用 .env 里的 MESSAGING_CWD（默认 home）
+terminal:
+  backend: "local"
+  cwd: "."  # 本地后端："." 表示当前目录。远端后端通常忽略此项，除非该后端明确说明支持。
+  timeout: 180                    # 单条命令超时（秒）
+  docker_mount_cwd_to_workspace: false  # 安全相关：默认关闭。开启后会把启动目录挂载到 Docker /workspace。
+  lifetime_seconds: 300           # 终端会话存活时间（秒）
+  # sudo_password: "hunter2"  # 可选：通过 sudo -S 管道传入 sudo 密码。警告：明文存储。
+  # sudo_password: ""         # 显式空密码：尝试空密码登录，且不再弹出交互式 sudo 输入。
+
+# -----------------------------------------------------------------------------
+# 方案 2：SSH 远程执行
+# 命令在远端服务器执行 — agent 自身代码留在本地（隔离）
+# 适合：把 agent 与其代码物理隔离；借用远端强力硬件
+# -----------------------------------------------------------------------------
+# terminal:
+#   backend: "ssh"
+#   cwd: "/home/myuser/project"  # 远端服务器上的路径
+#   timeout: 180
+#   lifetime_seconds: 300
+#   ssh_host: "my-server.example.com"
+#   ssh_user: "myuser"
+#   ssh_port: 22
+#   ssh_key: "~/.ssh/id_rsa"  # 可选，未指定时使用 ssh-agent
+
+# -----------------------------------------------------------------------------
+# 方案 3：Docker 容器
+# 命令在隔离的 Docker 容器内执行
+# 适合：可复现的环境、做测试、需要隔离
+# -----------------------------------------------------------------------------
+# terminal:
+#   backend: "docker"
+#   cwd: "/workspace"  # 容器内部路径（默认 /）
+#   timeout: 180
+#   lifetime_seconds: 300
+#   docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+#   docker_mount_cwd_to_workspace: true   # 显式开启：把启动目录挂载进 /workspace
+#   # 可选：显式将指定环境变量转发进 Docker。
+#   # 值优先从当前 shell 读取，然后是 ~/.hermes/.env。
+#   # 警告：转发的变量会对容器内命令可见。
+#   docker_forward_env:
+#     - "GITHUB_TOKEN"
+#     - "NPM_TOKEN"
+
+# -----------------------------------------------------------------------------
+# 方案 4：Singularity/Apptainer 容器
+# 命令在 Singularity 容器中执行（HPC 环境常用）
+# 适合：高性能计算集群、共享算力环境
+# -----------------------------------------------------------------------------
+# terminal:
+#   backend: "singularity"
+#   cwd: "/workspace"  # 容器内路径（默认 /root）
+#   timeout: 180
+#   lifetime_seconds: 300
+#   singularity_image: "docker://nikolaik/python-nodejs:python3.11-nodejs20"
+
+# -----------------------------------------------------------------------------
+# 方案 5：Modal 云端执行
+# 命令跑在 Modal 云基础设施上
+# 适合：需要 GPU、弹性算力、Serverless 执行
+# -----------------------------------------------------------------------------
+# terminal:
+#   backend: "modal"
+#   cwd: "/workspace"  # 沙箱内部路径（默认 /root）
+#   timeout: 180
+#   lifetime_seconds: 300
+#   modal_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+
+# -----------------------------------------------------------------------------
+# 方案 6：Daytona 云端执行
+# 命令跑在 Daytona 云沙箱中
+# 适合：云端开发环境、持久化工作区、团队协作
+# 需要：pip install daytona，以及 DAYTONA_API_KEY 环境变量
+# -----------------------------------------------------------------------------
+# terminal:
+#   backend: "daytona"
+#   cwd: "~"
+#   timeout: 180
+#   lifetime_seconds: 300
+#   daytona_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+#   container_disk: 10240          # Daytona 每个沙箱磁盘上限 10GB
+
+#
+# --- 容器资源限制（docker、singularity、modal、daytona 有效；local/ssh 忽略） ---
+# 下面几项适用于所有容器类后端，控制沙箱资源分配以及文件系统是否持久化。
+  container_cpu: 1              # CPU 核数
+  container_memory: 5120        # 内存，单位 MB（5120 = 5GB）
+  container_disk: 51200         # 磁盘，单位 MB（51200 = 50GB）
+  container_persistent: true    # 会话之间是否持久化文件系统（false = 临时）
+
+# -----------------------------------------------------------------------------
+# SUDO 支持（适用于上面所有后端）
+# -----------------------------------------------------------------------------
+# 在 terminal 里添加 sudo_password 即可启用 sudo。
+# 密码通过 `sudo -S` 管道注入。local、ssh、docker 等后端都适用。
+#
+# 安全警告：密码会以明文保存！
+#
+# 交互式输入：如果 sudo_password 未设置且当前是 CLI 运行，
+# 需要 sudo 时会弹出密码输入提示：
+# - 45 秒超时（无输入则自动跳过）
+# - 回车可跳过（命令将失败但不会卡死）
+# - 输入时隐藏密码
+# - 密码会在当前会话内缓存
+#
+# 空密码特殊语义：sudo_password 设为空字符串 与 不设置 含义不同。
+# 设为空字符串时，Hermes 会用空密码尝试 sudo -S，不会弹出交互输入。
+# 适用于：免密 sudo、macOS Touch ID sudo、任何不想看到弹窗的场景。
+#
+# 替代方案：
+# - SSH 后端：在远端服务器配置免密 sudo
+# - 容器后端：容器内直接以 root 运行，无需 sudo
+# - 本地：修改 /etc/sudoers，为特定命令单独放行
+#
+# 示例（加到上面 terminal 下面）：
+#   sudo_password: "your-password-here"
+
+# =============================================================================
+# 命令安全扫描（tirith）
+# =============================================================================
+# 可选的执行前命令安全扫描，由 tirith 提供。
+# 能识别：伪装 URL（同形异义字符）、管道到 shell、终端控制符注入、环境变量劫持等。
+# 安装：brew install sheeki03/tap/tirith
+# 文档：https://github.com/sheeki03/tirith
+#
+# security:
+#   tirith_enabled: true        # 启用/禁用 tirith 扫描
+#   tirith_path: "tirith"       # tirith 可执行文件路径（支持 ~ 展开）
+#   tirith_timeout: 5           # 扫描超时（秒）
+#   tirith_fail_open: true      # tirith 不可用时是否放行命令
+
+# =============================================================================
+# 浏览器工具配置
+# =============================================================================
+browser:
+  # 空闲超时（秒）— 在 agent 循环之间若无活动超过此时长，浏览器会话会被关闭
+  # 默认 120 = 2 分钟
+  inactivity_timeout: 120
+
+# =============================================================================
+# 上下文压缩（自动缩减长对话）
+# =============================================================================
+# 当对话接近模型上下文极限时，会自动把中段轮次总结掉以腾出空间，
+# 同时保留首尾关键上下文。
+#
+# 工作流程：
+# 1. 从 API 响应中跟踪真实 token 使用量（不是估算）
+# 2. 当 prompt_tokens >= 模型 context_length 的 threshold% 时触发压缩
+# 3. 保护开头 3 轮（系统提示、首轮用户消息、首轮助手回复）
+# 4. 保护末尾 N 条消息（默认 20 条 ≈ 10 个完整来回）
+# 5. 使用一个便宜/快的辅助模型对中段做摘要
+# 6. 将摘要作为一条 user 消息插入，对话无缝继续
+#
+# 压缩后保留的尾部预算 = target_ratio × threshold × context_length：
+#   200K 上下文，threshold 0.50，ratio 0.20 → 保留 20K token 的近期消息
+#   1M   上下文，threshold 0.50，ratio 0.20 → 保留 100K token 的近期消息
+#
+compression:
+  # 是否启用自动压缩（默认 true）
+  # 关闭后需要自己管理上下文，否则超长时会直接报错
+  enabled: true
+
+  # 触发阈值 — 占模型上下文的比例（默认 0.50 = 50%）
+  # 值越小越激进，越大越延后
+  threshold: 0.50
+
+  # 尾部保留比例 — 占阈值的比例（默认 0.20 = 20%）
+  # 例：阈值 50% 的 20% = 总上下文的 10% 作为近期消息保留。
+  # 摘要输出另外限制为 12K token（Gemini 输出上限）。
+  # 取值范围：0.10 - 0.80
+  target_ratio: 0.20
+
+  # 始终保留的最近消息条数（默认 20 ≈ 10 个完整来回）
+  # 值越大，近期对话保留得越完整，但对更早内容的压缩会更激进。
+  protect_last_n: 20
+
+  # 如需为压缩摘要固定某个模型/Provider，请在下方 auxiliary 段
+  # 配置 auxiliary.compression.provider / model。
+
+# =============================================================================
+# 辅助模型（高级 — 实验性）
+# =============================================================================
+# Hermes 用一些轻量级"辅助"模型处理边车任务：图片分析、
+# 浏览器截图分析、网页摘要、上下文压缩等。
+#
+# 默认情况下这些任务会通过 OpenRouter 或 Nous Portal 使用 Gemini Flash，
+# 并根据你的凭据自动选择。正常使用不需要改动这里的任何东西。
+#
+# 警告：把 provider 改成 OpenRouter / Nous Portal 之外的其它值属于实验性，
+# 可能失效。不是所有模型/厂商都支持视觉，也不是都能生成可用摘要，
+# API 格式也不一定一致。出问题请退回 "auto" / 空值。
+#
+# 每个任务有独立的 provider + model，允许混搭。
+# 例如：视觉用 OpenRouter（需要多模态），压缩用你本地端点（只需文本）。
+#
+# Provider 选项：
+#   "auto"         - 最优可用：OpenRouter → Nous Portal → 主端点（默认）
+#   "openrouter"   - 强制用 OpenRouter（需要 OPENROUTER_API_KEY）
+#   "nous"         - 强制用 Nous Portal（需要：hermes login）
+#   "gemini"       - 强制直连 Google AI Studio（需要 GOOGLE_API_KEY / GEMINI_API_KEY）
+#   "ollama-cloud" - Ollama Cloud（需要 OLLAMA_API_KEY）
+#   "codex"        - 强制 Codex OAuth（需要：hermes model → Codex）。
+#                    使用 gpt-5.3-codex，支持视觉。
+#   "main"         - 使用自定义端点（OPENAI_BASE_URL + OPENAI_API_KEY）。
+#                    OpenAI API、本地模型、任何 OpenAI 兼容端点均可。
+#                    也会回退到 Codex OAuth 和 API Key 类 Provider。
+#
+# model 留空即使用该 Provider 的默认值：OpenRouter 默认
+# "google/gemini-3-flash-preview"，Nous 默认 "gemini-3-flash"，
+# 其他 Provider 自动挑选合适模型。
+#
+# auxiliary:
+#   # 图片分析：vision_analyze 工具 + 浏览器截图
+#   vision:
+#     provider: "auto"
+#     model: ""              # 例如 "google/gemini-2.5-flash"、"openai/gpt-4o"
+#     timeout: 30            # LLM API 调用超时（秒）
+#     download_timeout: 30   # 图片 HTTP 下载超时（秒）
+#                            # 网络慢或自建图床时可适当调大
+#
+#   # 网页抓取/摘要 + 浏览器页面文本抽取
+#   web_extract:
+#     provider: "auto"
+#     model: ""
+
+# =============================================================================
+# 持久化记忆
+# =============================================================================
+# 每次会话会把一份精简的长期记忆注入到系统提示中。
+# 两个存储：MEMORY.md（agent 自己的笔记）和 USER.md（用户画像）。
+# 用字符数上限控制记忆量，保持精简。达到上限时由 agent 自行合并/替换。
+# batch_runner 和 RL 环境中默认关闭。
+#
+memory:
+  # Agent 自己的笔记：环境事实、约定、学到的经验
+  memory_enabled: true
+
+  # 用户画像：偏好、沟通风格、期望
+  user_profile_enabled: true
+
+  # 字符数上限（按 ~2.75 字符/token 粗略估算，与模型无关）
+  memory_char_limit: 2200   # ≈ 800 token
+  user_char_limit: 1375     # ≈ 500 token
+
+  # 定期记忆提醒：每 N 轮用户消息提醒 agent 考虑保存新记忆。
+  # 设为 0 关闭。仅在 memory 启用时有效。
+  nudge_interval: 10        # 每 10 轮用户消息提醒一次（0 = 关闭）
+
+  # 记忆 flush：在上下文可能丢失前（压缩、/new、/reset、退出）
+  # 给 agent 一轮机会保存记忆。设为 0 关闭。
+  # 对于退出/重置触发，必须会话内用户轮数 >= 此值才会触发 flush。
+  flush_min_turns: 6        # 触发退出/重置 flush 的最少用户轮数（0 = 关闭）
+
+# =============================================================================
+# 会话重置策略（消息平台专用）
+# =============================================================================
+# 控制 Telegram、Discord、WhatsApp、Slack 等平台上的会话何时自动清空。
+# 不重置的话上下文会无限增长，每条消息的 API 成本会越来越高。
+#
+# 触发重置前，agent 会先把关键信息写入持久化记忆；
+# 之后对话上下文被清空，agent 以"白纸"状态重启，但已学到的事实通过记忆保留下来。
+#
+# 用户在聊天中随时可以用 /reset 或 /new 手动重置。
+#
+# 模式：
+#   "both"  - 闲置超时 或 到每日边界，任一触发（推荐）
+#   "idle"  - 仅闲置 N 分钟后重置
+#   "daily" - 仅每天固定时刻重置
+#   "none"  - 永不自动重置；直到 /reset 或压缩触发
+#
+# 触发时会给 agent 一轮机会保存记忆和技能。持久化记忆会跨会话保留。
+#
+session_reset:
+  mode: both           # "both"、"idle"、"daily" 或 "none"
+  idle_minutes: 1440   # 闲置超时（分钟，默认 1440 = 24 小时）
+  at_hour: 4           # 每日重置时刻，0-23（本地时区，默认凌晨 4 点）
+
+# 为 true 时，群聊/频道在平台能提供 user ID 的情况下
+# 会为每个成员建立独立会话。这是安全默认值，防止同群用户共享上下文、
+# 互相打断、共享 token 成本。设为 false 表示群内所有人共用一个"群脑"。
+group_sessions_per_user: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Gateway 流式输出
+# ─────────────────────────────────────────────────────────────────────────────
+# 实时把 token 流式推送到消息平台：首个 token 到达时先发一条消息，
+# 之后随 token 到来不断编辑（edit）消息内容。
+# 默认关闭；开启后可在 Telegram/Discord/Slack 上获得更顺滑的体验。
+streaming:
+  enabled: false
+  # transport: edit           # "edit" = 渐进式 editMessageText
+  # edit_interval: 0.3        # 两次编辑之间的最小间隔（秒）
+  # buffer_threshold: 40      # 缓冲字符数达到此值时强制刷新一次
+  # cursor: " ▉"              # 流式过程中显示的光标字符
+
+# =============================================================================
+# Skill（技能）配置
+# =============================================================================
+# Skill 是 agent 可加载并遵循的可复用"操作流程"。
+# 完成复杂任务后，agent 也可以把经验沉淀为新技能。
+#
+skills:
+  # 提醒 agent 在复杂任务后创建技能。
+  # 每 N 次工具调用迭代提醒一次。设为 0 关闭。
+  creation_nudge_interval: 15
+
+  # 外部技能目录 — 跨工具/agent 共享技能而无需拷贝到 ~/.hermes/skills/。
+  # 每个路径都会做 ~ 和 ${VAR} 展开并转绝对路径。
+  # 外部目录为只读：新建技能永远写入 ~/.hermes/skills/。
+  # 命名冲突时本地技能优先。
+  # external_dirs:
+  #   - ~/.agents/skills
+  #   - /home/shared/team-skills
+
+# =============================================================================
+# Agent 行为
+# =============================================================================
+agent:
+  # 单次对话最多工具调用迭代次数
+  # 数值越大越能处理复杂任务，但 token 成本也会增加
+  # 推荐值：聚焦任务 20-30，开放式探索 50-100
+  max_turns: 60
+
+  # Gateway 模式下 agent 运行的闲置超时（秒，0 = 不限）。
+  # 当 agent 正在调用工具或接收 API 响应时可以无限运行；
+  # 只有在空闲达到此阈值后才触发。
+  # gateway_timeout: 1800
+
+  # 阶段性提醒：在彻底超时前先发送一次警告。
+  # 每次运行闲置达到该阈值时触发一次（秒）。设为 0 关闭。
+  # gateway_timeout_warning: 900
+
+  # Gateway 停止/重启时的优雅排空超时（秒）。
+  # Gateway 会停止接收新任务，等待在途 agent 完成；
+  # 超过此时长仍在运行的任务会被中断。
+  # 0 = 不排空，立即中断。
+  # restart_drain_timeout: 60
+
+  # 启用详细日志
+  verbose: false
+
+  # 推理强度（仅 OpenRouter 和 Nous Portal 支持）
+  # 控制模型回复前"思考"的力度。
+  # 可选："xhigh"（最高）、"high"、"medium"、"low"、"minimal"、"none"（关闭）
+  reasoning_effort: "medium"
+
+  # 预设人格（搭配 /personality 命令使用）
+  personalities:
+    helpful: "You are a helpful, friendly AI assistant."
+    concise: "You are a concise assistant. Keep responses brief and to the point."
+    technical: "You are a technical expert. Provide detailed, accurate technical information."
+    creative: "You are a creative assistant. Think outside the box and offer innovative solutions."
+    teacher: "You are a patient teacher. Explain concepts clearly with examples."
+    kawaii: "You are a kawaii assistant! Use cute expressions like (◕‿◕), ★, ♪, and ~! Add sparkles and be super enthusiastic about everything! Every response should feel warm and adorable desu~! ヽ(>∀<☆)ノ"
+    catgirl: "You are Neko-chan, an anime catgirl AI assistant, nya~! Add 'nya' and cat-like expressions to your speech. Use kaomoji like (=^･ω･^=) and ฅ^•ﻌ•^ฅ. Be playful and curious like a cat, nya~!"
+    pirate: "Arrr! Ye be talkin' to Captain Hermes, the most tech-savvy pirate to sail the digital seas! Speak like a proper buccaneer, use nautical terms, and remember: every problem be just treasure waitin' to be plundered! Yo ho ho!"
+    shakespeare: "Hark! Thou speakest with an assistant most versed in the bardic arts. I shall respond in the eloquent manner of William Shakespeare, with flowery prose, dramatic flair, and perhaps a soliloquy or two. What light through yonder terminal breaks?"
+    surfer: "Duuude! You're chatting with the chillest AI on the web, bro! Everything's gonna be totally rad. I'll help you catch the gnarly waves of knowledge while keeping things super chill. Cowabunga! 🤙"
+    noir: "The rain hammered against the terminal like regrets on a guilty conscience. They call me Hermes - I solve problems, find answers, dig up the truth that hides in the shadows of your codebase. In this city of silicon and secrets, everyone's got something to hide. What's your story, pal?"
+    uwu: "hewwo! i'm your fwiendwy assistant uwu~ i wiww twy my best to hewp you! *nuzzles your code* OwO what's this? wet me take a wook! i pwomise to be vewy hewpful >w<"
+    philosopher: "Greetings, seeker of wisdom. I am an assistant who contemplates the deeper meaning behind every query. Let us examine not just the 'how' but the 'why' of your questions. Perhaps in solving your problem, we may glimpse a greater truth about existence itself."
+    hype: "YOOO LET'S GOOOO!!! 🔥🔥🔥 I am SO PUMPED to help you today! Every question is AMAZING and we're gonna CRUSH IT together! This is gonna be LEGENDARY! ARE YOU READY?! LET'S DO THIS! 💪😤🚀"
+
+# =============================================================================
+# 工具集（Toolsets）
+# =============================================================================
+# 控制 agent 能用到哪些工具。
+# 运行 `hermes tools` 可交互式在各平台启用/禁用工具。
+
+# =============================================================================
+# 分平台工具集（为每个平台单独配置）
+# =============================================================================
+# 可以覆盖每个平台默认可用的工具集。
+# 未在此列出的平台使用其内置默认。
+#
+# 两种写法任选：
+#   - 使用预设（preset）如 "hermes-cli"、"hermes-telegram"（已调好的组合）
+#   - 使用工具集清单自行组合（见下方列表）
+#
+# 支持的平台键：cli、telegram、discord、whatsapp、slack、qqbot
+#
+# 示例：
+#
+#   # 使用预设（等同默认）：
+#   platform_toolsets:
+#     cli: [hermes-cli]
+#     telegram: [hermes-telegram]
+#
+#   # 自定义：Telegram 仅保留 web + terminal + file + 计划工具
+#   platform_toolsets:
+#     telegram: [web, terminal, file, todo]
+#
+#   # 自定义：CLI 不要浏览器和图像生成
+#   platform_toolsets:
+#     cli: [web, terminal, file, skills, todo, tts, cronjob]
+#
+#   # 严格限制：Discord 只给只读工具
+#   platform_toolsets:
+#     discord: [web, vision, skills, todo]
+#
+# 未设置时的默认：
+#   cli:           hermes-cli            （全功能 + 定时任务管理）
+#   telegram:      hermes-telegram       （terminal, file, web, vision, image, tts, browser, skills, todo, cronjob, messaging）
+#   discord:       hermes-discord        （同 telegram）
+#   whatsapp:      hermes-whatsapp       （同 telegram）
+#   slack:         hermes-slack          （同 telegram）
+#   signal:        hermes-signal         （同 telegram）
+#   homeassistant: hermes-homeassistant  （同 telegram）
+#   qqbot:         hermes-qqbot          （同 telegram）
+#
+platform_toolsets:
+  cli: [hermes-cli]
+  telegram: [hermes-telegram]
+  discord: [hermes-discord]
+  whatsapp: [hermes-whatsapp]
+  slack: [hermes-slack]
+  signal: [hermes-signal]
+  homeassistant: [hermes-homeassistant]
+  qqbot: [hermes-qqbot]
+
+# =============================================================================
+# Gateway 平台设置
+# =============================================================================
+# 各消息平台的可选配置。
+# 平台专属参数放在 extra 下。
+#
+# platforms:
+#   telegram:
+#     reply_to_mode: "first"  # off（不回复原消息）| first（只回首条）| all（全部回复）
+#     extra:
+#       disable_link_previews: false  # 设为 true 可屏蔽 Telegram 消息的 URL 预览
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 可用工具集（用于 platform_toolsets 或 toolsets 列表）
+#
+# `hermes chat --list-toolsets` 查看所有工具集及其包含的工具。
+# `hermes chat --list-tools` 查看每一个具体工具及描述。
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 单项工具集（可自由组合）：
+#   web          - web_search, web_extract
+#   search       - 仅 web_search（不抓页面）
+#   terminal     - terminal, process
+#   file         - read_file, write_file, patch, search
+#   browser      - browser_navigate, browser_snapshot, browser_click, browser_type,
+#                  browser_scroll, browser_back, browser_press,
+#                  browser_get_images, browser_vision  （需要 BROWSERBASE_API_KEY）
+#   vision       - vision_analyze  （需要 OPENROUTER_API_KEY）
+#   image_gen    - image_generate  （需要 FAL_KEY）
+#   skills       - skills_list, skill_view
+#   skills_hub   - skill_hub（从在线注册表搜索/安装/管理；仅用户触发）
+#   moa          - mixture_of_agents  （需要 OPENROUTER_API_KEY）
+#   todo         - todo（内存中的任务规划，无外部依赖）
+#   tts          - text_to_speech（Edge TTS 免费，或 ELEVENLABS/OPENAI/MINIMAX/MISTRAL Key）
+#   cronjob      - cronjob（创建/列出/更新/暂停/恢复/运行/删除定时任务）
+#   rl           - rl_list_environments, rl_start_training 等（需要 TINKER_API_KEY）
+#
+# 预设（已调好的组合）：
+#   hermes-cli       - 除 rl 外的全部 + send_message
+#   hermes-telegram  - terminal, file, web, vision, image_gen, tts, browser,
+#                      skills, todo, cronjob, send_message
+#   hermes-discord   - 同 hermes-telegram
+#   hermes-whatsapp  - 同 hermes-telegram
+#   hermes-slack     - 同 hermes-telegram
+#
+# 复合集合：
+#   debugging    - terminal + web + file
+#   safe         - web + vision + moa（无终端访问）
+#   all          - 所有可用工具
+#
+#   web          - 网页搜索与内容抽取（web_search, web_extract）
+#   search       - 仅搜索不抓取（web_search）
+#   terminal     - 命令执行与进程管理（terminal, process）
+#   file         - 文件操作：读、写、打补丁、搜索
+#   browser      - 完整浏览器自动化（导航、点击、输入、截图等）
+#   vision       - 图像分析（vision_analyze）
+#   image_gen    - FLUX 图像生成（image_generate）
+#   skills       - 加载技能文档（skills_list, skill_view）
+#   moa          - Mixture of Agents 推理（mixture_of_agents）
+#   todo         - 多步任务规划与追踪
+#   memory       - 跨会话持久化记忆（个人笔记 + 用户画像）
+#   session_search - 过往对话搜索与回忆（FTS5 + Gemini Flash 摘要）
+#   tts          - 文本转语音（Edge TTS 免费、ElevenLabs、OpenAI、MiniMax、Mistral）
+#   cronjob      - 定时任务调度与管理（仅 CLI）
+#   rl           - 强化学习训练工具（Tinker-Atropos）
+#
+# 复合集合：
+#   debugging    - terminal + web + file（用于排障）
+#   safe         - web + vision + moa（禁止终端访问）
+
+# 注意：顶层的 "toolsets" 键已废弃，不再生效。
+# 请使用上方 platform_toolsets 按平台配置。
+# 可用 `hermes tools` 交互式配置，也可直接编辑 platform_toolsets。
+#
+# CLI 命令行覆盖：hermes chat --toolsets terminal,web,file
+
+# =============================================================================
+# MCP（Model Context Protocol）服务器
+# =============================================================================
+# 连接外部 MCP 服务器，接入 MCP 生态里的各种工具。
+# 服务器提供的工具会被自动发现并注册。
+# 完整文档见 docs/mcp.md。
+#
+# Stdio 类型服务器（本地起一个子进程）：
+#   command: 可执行文件
+#   args: 命令行参数
+#   env: 环境变量（仅这些 + 安全默认会传给子进程）
+#
+# HTTP 类型服务器（连接到 URL）：
+#   url: MCP 服务端点
+#   headers: HTTP 头（例如鉴权）
+#
+# 可选的每服务器参数：
+#   timeout: 工具调用超时（秒，默认 120）
+#   connect_timeout: 初次连接超时（秒，默认 60）
+#
+# mcp_servers:
+#   time:
+#     command: uvx
+#     args: ["mcp-server-time"]
+#   filesystem:
+#     command: npx
+#     args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
+#   notion:
+#     url: https://mcp.notion.com/mcp
+#   github:
+#     command: npx
+#     args: ["-y", "@modelcontextprotocol/server-github"]
+#     env:
+#       GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_..."
+#
+# Sampling（服务器主动发起的 LLM 调用）— 默认启用。
+# 每个服务器的 sampling 配置：
+#   analysis:
+#     command: npx
+#     args: ["-y", "analysis-server"]
+#     sampling:
+#       enabled: true           # 默认 true
+#       model: "gemini-3-flash" # 可覆盖模型（可选）
+#       max_tokens_cap: 4096    # 单次请求最大 token 数
+#       timeout: 30             # LLM 调用超时（秒）
+#       max_rpm: 10             # 每分钟最大请求数
+#       allowed_models: []      # 模型白名单（空 = 全部允许）
+#       max_tool_rounds: 5      # 工具循环上限（0 = 禁用）
+#       log_level: "info"       # 审计日志详细程度
+
+# =============================================================================
+# 语音转写（Speech-to-Text）
+# =============================================================================
+# 自动把消息平台上的语音消息转成文字。
+# 提供方：local（免费，faster-whisper）| groq（有免费额度）| openai（Whisper API）| mistral（Voxtral Transcribe）
+# 在 .env 中设置对应 Key：GROQ_API_KEY、OPENAI_API_KEY 或 MISTRAL_API_KEY。
+stt:
+  enabled: true
+  # provider: "local"          # 不写则自动检测
+  local:
+    model: "base"              # tiny | base | small | medium | large-v3 | turbo
+    # language: ""             # 自动识别；设为 "en"/"es"/"fr" 等可强制指定
+  openai:
+    model: "whisper-1"         # whisper-1 | gpt-4o-mini-transcribe | gpt-4o-transcribe
+  # mistral:
+  #   model: "voxtral-mini-latest"  # voxtral-mini-latest | voxtral-mini-2602
+
+# =============================================================================
+# 回复节奏控制（消息平台）
+# =============================================================================
+# 为消息分块之间添加"人类感"延迟。
+# human_delay:
+#   mode: "off"      # "off" | "natural" | "custom"
+#   min_ms: 800      # 最小延迟（仅 custom 模式）
+#   max_ms: 2500     # 最大延迟（仅 custom 模式）
+
+# =============================================================================
+# 会话日志
+# =============================================================================
+# 会话轨迹会自动保存到 logs/ 目录。
+# 每个会话生成：logs/session_YYYYMMDD_HHMMSS_UUID.json
+#
+# 会话 ID 会显示在启动横幅里，便于引用。
+# 日志以 trajectory 格式记录完整对话历史：
+# - 系统提示、用户消息、助手回复
+# - 工具调用及其输入/输出
+# - 时间戳（用于排障）
+#
+# 无需配置 — 日志始终开启。
+# 若要关闭需要改源码。
+
+# =============================================================================
+# 代码执行沙箱（编程式工具调用）
+# =============================================================================
+# execute_code 工具可执行 Python 脚本，脚本内部通过 RPC 调用 Hermes 工具。
+# 中间工具结果不会进入 LLM 上下文窗口。
+code_execution:
+  timeout: 300         # 单次脚本最长执行时间（秒，默认 300 = 5 分钟）
+  max_tool_calls: 50   # 单次执行最多允许的 RPC 工具调用次数（默认 50）
+
+# =============================================================================
+# 子 Agent 委派
+# =============================================================================
+# delegate_task 工具可派生出上下文隔离的子 agent。
+# 支持单任务和批量模式（最多 3 个并行）。
+delegation:
+  max_iterations: 50                          # 每个子 agent 的最大工具调用轮数（默认 50）
+  default_toolsets: ["terminal", "file", "web"]  # 子 agent 默认工具集
+  # model: "google/gemini-3-flash-preview"    # 覆盖子 agent 的模型（空 = 继承父 agent）
+  # provider: "openrouter"                    # 覆盖子 agent 的 Provider（空 = 继承父 agent）
+  #                                           # 会自动解析完整凭据（base_url、api_key）。
+  #                                           # 支持：openrouter, nous, zai, kimi-coding, minimax
+
+# =============================================================================
+# Honcho 集成（跨会话用户建模）
+# =============================================================================
+# 通过 Honcho（https://honcho.dev/）提供 AI 原生的持久化记忆。
+# 在多个会话和工具之间建立更深入的用户理解。
+# 与 USER.md 并存 —— 叠加关系，不是替换。
+#
+# 需要：pip install honcho-ai
+# 配置：~/.honcho/config.json（与 Claude Code、Cursor 等共用）
+# API Key：HONCHO_API_KEY 放在 ~/.hermes/.env 或 ~/.honcho/config.json 中
+#
+# Hermes 专属覆盖项（可选 — 大多数配置来自 ~/.honcho/config.json）：
+# honcho: {}
+
+# =============================================================================
+# 显示
+# =============================================================================
+display:
+  # 使用紧凑版启动横幅
+  compact: false
+
+  # 工具进度显示级别（CLI 和 gateway 都适用）
+  #   off:     静默 — 完全不显示工具活动，只有最终回复
+  #   new:     仅当工具变化时显示（相同工具连续调用只显示一次）
+  #   all:     显示每次工具调用及简短预览（默认）
+  #   verbose: 完整参数、结果与调试日志（等同 /verbose）
+  # 运行时可用 /verbose 切换
+  tool_progress: all
+
+  # Gateway 专属：回合中途的自然语言进度消息。
+  # 设为 true 时，已完成的助手状态消息会作为独立聊天消息发送。
+  # 独立于 tool_progress 和 streaming。
+  interim_assistant_messages: true
+
+  # CLI 忙碌时按回车的行为。
+  #   interrupt: 打断当前运行并把新消息作为下一步（默认）
+  #   queue:     把你的消息排队，等当前回合结束后再处理
+  # 不管哪种模式，Ctrl+C 都会打断。
+  busy_input_mode: interrupt
+
+  # 后台进程通知（仅 gateway/消息平台）。
+  # 当你从 Telegram/Discord 等用 terminal(background=true, notify_on_complete=true) 时，
+  # 控制进程监视器有多"话痨"：
+  #   off:     完全不发送
+  #   result:  只发最终完成消息
+  #   error:   只在退出码 != 0 时发送
+  #   all:     运行过程输出 + 最终消息（默认）
+  background_process_notifications: all
+
+
+  # Agent 完成回复时敲响终端响铃。
+  # 适合长耗时任务 — 回答完成时你的终端会"叮"一声。
+  # 通过 SSH 也能工作。多数终端可以配置为闪烁任务栏或播放声音。
+  bell_on_complete: false
+
+  # 回复前显示模型的推理/思考过程。
+  # 开启后在回复上方用一个灰色框展示模型的思路。
+  # 运行时可用 /reasoning show 或 /reasoning hide 切换。
+  show_reasoning: false
+
+  # Token 实时流式推送到终端，而不是等完整回复一次性显示。
+  # 首个 token 到达时回复框就会展开，文字逐行出现。
+  # 工具调用仍在静默中被捕获。
+  # 关闭后会等完整回复再一次性显示。
+  streaming: true
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 皮肤/主题
+  # ───────────────────────────────────────────────────────────────────────────
+  # 自定义 CLI 视觉外观 — 横幅颜色、spinner 表情、工具前缀、
+  # 回复框标签、品牌文本。运行时可用 /skin <名称> 切换。
+  #
+  # 内置皮肤：
+  #   default  — 经典 Hermes 金色/卡哇伊
+  #   ares     — 绯红/青铜战神主题，带 spinner 羽翼
+  #   mono     — 干净的灰度单色
+  #   slate    — 冷蓝色开发者风
+  #
+  # 自定义皮肤：在 ~/.hermes/skins/<名称>.yaml 放一个 YAML 文件即可
+  # Schema（所有字段可选，缺省项继承 default）：
+  #
+  #   name: my-theme
+  #   description: 一句话描述
+  #   colors:
+  #     banner_border: "#HEX"    # 面板边框
+  #     banner_title: "#HEX"     # 面板标题
+  #     banner_accent: "#HEX"    # 小节标题（可用工具 等）
+  #     banner_dim: "#HEX"       # 暗色/次要文字
+  #     banner_text: "#HEX"      # 正文（工具名、技能名）
+  #     ui_accent: "#HEX"        # UI 强调色
+  #     response_border: "#HEX"  # 回复框边框颜色
+  #   spinner:
+  #     waiting_faces: ["(⚔)", "(⛨)"]       # 等待时的表情
+  #     thinking_faces: ["(⚔)", "(⌁)"]      # 思考时的表情
+  #     thinking_verbs: ["forging", "plotting"]  # spinner 动词
+  #     wings:                                # 可选的左右装饰
+  #       - ["⟪⚔", "⚔⟫"]
+  #       - ["⟪▲", "▲⟫"]
+  #   branding:
+  #     agent_name: "My Agent"               # 横幅标题与品牌
+  #     welcome: "Welcome message"           # CLI 启动欢迎语
+  #     response_label: " ⚔ Agent "         # 回复框头部标签
+  #     prompt_symbol: "⚔ ❯ "              # 提示符
+  #   tool_prefix: "╎"                       # 工具输出行前缀（默认 ┊）
+  #
+  skin: default
+
+# =============================================================================
+# 模型别名 — 给 /model 命令用的短名
+# =============================================================================
+# 把短别名映射到精确的 (model, provider, base_url) 三元组。
+# 用于 /model 命令的 Tab 补全和 resolve_alias()。
+# 别名会在 models.dev 目录之前被检查，因此可以路由到目录里没有的
+# 端点（例如 Ollama Cloud、本地服务器）。
+#
+# model_aliases:
+#   opus:
+#     model: claude-opus-4-6
+#     provider: anthropic
+#   qwen:
+#     model: "qwen3.5:397b"
+#     provider: custom
+#     base_url: "https://ollama.com/v1"
+#   glm:
+#     model: glm-4.7
+#     provider: custom
+#     base_url: "https://ollama.com/v1"
+
+# =============================================================================
+# 隐私
+# =============================================================================
+# privacy:
+#   # 在发送给 LLM 之前对上下文做 PII 脱敏。
+#   # 为 true 时，手机号被剔除，user/chat ID 会被替换成确定性哈希。
+#   # 用户名/昵称不受影响（那是用户自选、本就公开的）。
+#   # 路由/投递仍然使用原始值（内部处理）。
+#   redact_pii: false
